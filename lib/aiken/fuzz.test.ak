@@ -1,11 +1,12 @@
 use aiken/collection/list
 use aiken/fuzz.{
   and_then, bool, int, int_between, label, list_between, list_with_elem, map,
-  one_of, set, set_between, sublist, such_that,
+  one_of, rational_at_least, rational_at_most, rational_between, rational, set, set_between, sublist, such_that,
 }
 use aiken/math
 use aiken/primitive/bytearray
 use aiken/primitive/string
+use aiken/math/rational.{ Rational, new}
 
 test prop_int_distribution(n via int()) {
   label(
@@ -17,7 +18,7 @@ test prop_int_distribution(n via int()) {
       @"0"
     } else if n < 256 {
       @"]0; 255]"
-    } else if n < 16383 {
+    } else if n <= 16383 {
       @"[256; 16383]"
     } else {
       fail @"n > 16383"
@@ -200,6 +201,56 @@ test prop_set_between_distribution(n via set_between(int_between(0, 50), 3, 13))
   True
 }
 
+test rational_distribution(fraction via rational()){
+  fraction_distribution(fraction)
+}
+
+test prop_fraction_between_bounds(fraction via rational_between(new(-255,1), new(255,1))){
+  fraction_distribution(fraction)
+  expect Some(min_bound) = new(-255,1)
+  expect Some(max_bound) = new(255,1)
+  (rational.compare(fraction, min_bound) == Greater || rational.compare(fraction, min_bound) == Equal) &&
+  (rational.compare(fraction, max_bound)== Less || rational.compare(fraction, max_bound)== Equal)
+}
+
+test prop_at_least_for_positive_fractions(fraction via rational_at_least(new(1,1))){
+  fraction_distribution(fraction)
+  expect Some(min_bound) = new(1,1)
+  expect Some(max_bound) = new(255,1)
+  (rational.compare(fraction, min_bound) == Greater || rational.compare(fraction, min_bound) == Equal) &&
+  (rational.compare(fraction, max_bound)== Less || rational.compare(fraction, max_bound)== Equal)
+}
+
+test prop_at_most_for_negative_fraction(fraction via rational_at_most(new(0,1))){
+  fraction_distribution(fraction)
+  expect Some(min_bound) = new(-255,1)
+  expect Some(max_bound) = new(0,1)
+  (rational.compare(fraction, min_bound) == Greater || rational.compare(fraction, min_bound) == Equal) &&
+  (rational.compare(fraction, max_bound)== Less || rational.compare(fraction, max_bound)== Equal)
+}
+
+fn fraction_distribution(fraction: Rational){
+  expect Some(bound1) = new(-255,1)
+  expect Some(bound2) = new(-100,1)
+  expect Some(bound3) = new(0,1)
+  expect Some(bound4) = new(100,1)
+  expect Some(bound5) = new(256,1)
+  label(
+    if rational.compare(fraction, bound1) == Less{
+      fail
+    }else if rational.compare(fraction, bound2) == Less{
+      @"[-255,-101]"
+    }else if rational.compare(fraction, bound3) == Less{
+      @"[-100,-1]"
+    }else if rational.compare(fraction, bound4) == Less{
+      @"[0, 100]"
+    }else if rational.compare(fraction, bound5) == Less{
+      @"[101,255]"
+    }else{
+      @">255"
+    }
+  )
+}
 // This property simply illustrate a case where the `set`
 // fuzzer would fail and not loop forever after not being
 // able to satisfy the demand (not enough entropy in the
